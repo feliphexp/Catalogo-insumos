@@ -8,7 +8,7 @@ from sqlalchemy import inspect
 from fpdf import FPDF
 from datetime import datetime
 import urllib.parse
-# Nenhuma importação de PIX ou CRC necessária aqui
+# Nenhuma importação de PIX ou CRC necessária aqui, a função é autocontida
 
 # --- Configuração da Aplicação ---
 app = Flask(__name__)
@@ -17,10 +17,12 @@ app.config['SECRET_KEY'] = 'a-chave-que-vai-funcionar-agora-100-porcento-final'
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{DB_NAME}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# --- Inicialização dos Módulos Flask ---
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
+# --- MODELOS ---
 class Product(db.Model):
     __tablename__ = 'produto'
     id = db.Column(db.Integer, primary_key=True)
@@ -38,6 +40,7 @@ class User(UserMixin, db.Model):
 def load_user(user_id):
     return db.session.get(User, int(user_id))
 
+# --- ROTAS ---
 @app.route('/')
 @login_required
 def catalogo():
@@ -105,10 +108,8 @@ def delete_product(id):
 @app.route('/admin/users')
 @login_required
 def admin_users():
-    if current_user.role != 'admin':
-        abort(403)
+    if current_user.role != 'admin': abort(403)
     users = User.query.order_by(User.username).all()
-    # CORREÇÃO AQUI: de .hml para .html
     return render_template('admin_users.html', users=users)
 
 @app.route('/admin/users/add', methods=['POST'])
@@ -197,11 +198,14 @@ def generate_pdf():
     response.headers.set('Content-Type', 'application/pdf')
     return response
 
+# --- FUNÇÃO PARA GERAR O PIX COPIA E COLA ---
 def generate_pix_br_code(pix_key, merchant_name, merchant_city, amount, txid="***"):
     def format_field(id, value):
         return f"{id:02d}{len(value):02d}{value}"
+
     merchant_name = ''.join(e for e in merchant_name if e.isalnum() or e.isspace())[:25]
     merchant_city = ''.join(e for e in merchant_city if e.isalnum() or e.isspace())[:15]
+
     payload_format_indicator = format_field(0, "01")
     merchant_account_info = format_field(26, format_field(0, "br.gov.bcb.pix") + format_field(1, pix_key))
     merchant_category_code = format_field(52, "0000")
@@ -211,11 +215,13 @@ def generate_pix_br_code(pix_key, merchant_name, merchant_city, amount, txid="**
     merchant_name_field = format_field(59, merchant_name)
     merchant_city_field = format_field(60, merchant_city)
     additional_data_field = format_field(62, format_field(5, txid))
+    
     payload_to_crc = (
         payload_format_indicator + merchant_account_info + merchant_category_code +
         transaction_currency + transaction_amount + country_code +
         merchant_name_field + merchant_city_field + additional_data_field + "6304"
     )
+    
     polynom = 0x1021
     crc = 0xFFFF
     for byte in payload_to_crc.encode('utf-8'):
@@ -226,7 +232,9 @@ def generate_pix_br_code(pix_key, merchant_name, merchant_city, amount, txid="**
             else:
                 crc <<= 1
     checksum = crc & 0xFFFF
+
     return payload_to_crc + f"{checksum:04X}"
+
 
 @app.route('/share_on_whatsapp', methods=['POST'])
 @login_required
@@ -250,20 +258,25 @@ def share_on_whatsapp():
         return redirect(url_for('cart'))
     pedido_texto = [f"- {item['quantity']}x {item['product'].nome} ..... R$ {(item['product'].preco * item['quantity']):.2f}" for item in cart_items]
     pedido_formatado = "\n".join(pedido_texto)
+    
+    # *** ALTERAÇÃO FEITA AQUI ***
     pix_code = generate_pix_br_code(
-        pix_key="jfsrevestimentos@gmail.com",
+        pix_key="jfsgranitos@gmail.com", # CHAVE PIX ATUALIZADA
         merchant_name="JFS REVESTIMENTOS",
         merchant_city="SAO PAULO",
         amount=total_price,
         txid="PEDIDOCLIENTE"
     )
+    
     message = (
         f" prezado(a) *{customer_name}*,\n\n"
         f"Segue o seu pedido realizado com o vendedor *{current_user.username}*:\n\n"
         f"```\n{pedido_formatado}\n```\n"
         f"--------------------------------\n"
         f"*TOTAL:* R$ {total_price:.2f}\n\n"
-        f"Para efetuar o pagamento, basta usar o PIX Copia e Cola abaixo:\n\n"
+        f"Para efetuar o pagamento, utilize a nossa chave PIX (E-mail):\n"
+        f"🔑 *jfsgranitos@gmail.com*\n\n" # Chave PIX na mensagem também atualizada
+        f"Ou pague diretamente pelo PIX Copia e Cola abaixo:\n"
         f"👇 *PIX Copia e Cola (com valor)* 👇\n"
         f"```\n{pix_code}\n```\n\n"
         f"Agradecemos a preferência!"
@@ -272,6 +285,7 @@ def share_on_whatsapp():
     session.pop('cart', None)
     return redirect(whatsapp_url)
 
+# --- FUNÇÃO DE CRIAÇÃO DO BANCO DE DADOS ---
 def setup_database(app):
     with app.app_context():
         inspector = inspect(db.engine)
@@ -294,6 +308,7 @@ def setup_database(app):
         else:
             print("Banco de dados já existe. Nenhum dado novo foi inserido.")
 
+# --- INICIADOR DA APLICAÇÃO ---
 if __name__ == '__main__':
     setup_database(app)
     app.run(debug=True, use_reloader=False)
