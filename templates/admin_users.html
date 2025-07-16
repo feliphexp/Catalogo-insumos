@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row">
+    <!-- Coluna para Adicionar Novo Usuário -->
+    <div class="col-md-4">
+        <h3>Adicionar Novo Usuário</h3>
+        <div class="card">
+            <div class="card-body">
+                <form action="{{ url_for('add_new_user') }}" method="POST">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Nome de Usuário</label>
+                        <input type="text" class="form-control" name="username" id="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Senha</label>
+                        <input type="password" class="form-control" name="password" id="password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="role" class="form-label">Nível de Acesso</label>
+                        <select class="form-select" name="role" id="role">
+                            <option value="consulta">Consulta (pode ver e fazer pedidos)</option>
+                            <option value="admin">Admin (controle total)</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Criar Usuário</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Coluna para Listar Usuários Existentes -->
+    <div class="col-md-8">
+        <h3>Usuários Existentes</h3>
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Nome de Usuário</th>
+                        <th>Nível de Acesso</th>
+                        <th class="text-end">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>{{ user.username }}</td>
+                        <td>
+                            {% if user.role == 'admin' %}
+                                <span class="badge bg-success">Admin</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Consulta</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <!-- Bloco IF corrigido -->
+                            {% if user.id != current_user.id %}
+                            <form action="{{ url_for('delete_user', id=user.id) }}" method="POST" onsubmit="return confirm('Tem certeza que deseja deletar este usuário? Esta ação não pode ser desfeita.');">
+                                <button type="submit" class="btn btn-danger btn-sm">Deletar</button>
+                            </form>
+                            {% endif %} <!-- A TAG QUE FALTAVA FOI ADICIONADA AQUI -->
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

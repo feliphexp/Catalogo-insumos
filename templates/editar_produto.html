@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>{% if action == 'add' %}Adicionar Novo Produto{% else %}Editar Produto{% endif %}</h2>
+<form method="POST">
+    <div class="mb-3">
+        <label for="nome" class="form-label">Nome do Produto</label>
+        <input type="text" class="form-control" id="nome" name="nome" value="{{ product.nome if product else '' }}" required>
+    </div>
+    <div class="mb-3">
+        <label for="preco" class="form-label">Preço</label>
+        <input type="number" step="0.01" class="form-control" id="preco" name="preco" value="{{ product.preco if product else '' }}" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Salvar</button>
+    <a href="{{ url_for('catalogo') }}" class="btn btn-secondary">Cancelar</a>
+</form>
+{% endblock %} 
